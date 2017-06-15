@@ -16,3 +16,9 @@ def deleteTable(TableName):
 
 def describeTable(TableName):
     return dynamodb.describe_table(TableName=TableName)
+
+def putItem(TableName, Item):
+    return dynamodb.put_item(
+        TableName=TableName,
+        Item=Item
+    )

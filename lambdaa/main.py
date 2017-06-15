@@ -27,3 +27,9 @@ def createEventSourceMapping(EventSourceArn, FunctionName, Enabled, BatchSize, S
         BatchSize=BatchSize,
         StartingPosition=StartingPosition,
     )
+
+def listEventSourceMappings(EventSourceArn, FunctionName):
+    return lambdaobj.list_event_source_mappings(
+        EventSourceArn=EventSourceArn,
+        FunctionName=FunctionName
+    )

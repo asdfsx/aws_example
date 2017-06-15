@@ -7,6 +7,7 @@ import iam
 import lambdaa
 import traceback
 import zipfile
+import time
 from string import Template
 
 policy_template = Template("""{
@@ -213,15 +214,36 @@ def main():
         lambdaobj = newlambda
     print lambdaobj
 
-    # 设置 event source 到 lambda function
-    mapping = lambdaa.createEventSourceMapping(
+    # 检查映射是否创建
+    mappings = lambdaa.listEventSourceMappings(
         EventSourceArn=tableobj["Table"]["LatestStreamArn"],
-        FunctionName=functioname,
-        Enabled=True,
-        BatchSize=1,
-        StartingPosition="TRIM_HORIZON",
+        FunctionName=functioname
     )
-    print mapping
+    print mappings
+
+    if len(mappings["EventSourceMappings"]) == 0:
+        # 设置 event source 到 lambda function
+        mapping = lambdaa.createEventSourceMapping(
+            EventSourceArn=tableobj["Table"]["LatestStreamArn"],
+            FunctionName=functioname,
+            Enabled=True,
+            BatchSize=1,
+            StartingPosition="TRIM_HORIZON",
+        )
+        print mapping
+
+    time.sleep(5)
+
+    # 向 Dynamodb 中写入数据，触发事件
+    result = dynamodb.putItem(
+        TableName=tablename,
+        Item={
+            "Username" : {"S" : "asdfsx"},
+            "Timestamp" : {"S" : "2017-06-15"},
+            "Message" : {"S" : "message from python"}
+        }
+    )
+    print result
 
 if __name__ == "__main__":
     main()
