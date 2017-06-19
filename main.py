@@ -1,14 +1,18 @@
 # -*- encoding: utf-8 -*-
 
+from string import Template
+import time
+import traceback
+import zipfile
+import os.path
+
 import boto3
 import sns
 import dynamodb
 import iam
 import lambdaa
-import traceback
-import zipfile
-import time
-from string import Template
+import s3
+
 
 policy_template = Template("""{
     "Version": "2012-10-17",
@@ -76,12 +80,25 @@ def handler(event, context):
 
 """)
 
+s3_bucketname = "boto3-s3-example" # 名字格式有要求，不能有下划线
+s3_dirname = "boto3-test/"
+s3_uploadfile = "zips/boto3_lambda_example.zip"
+
+tablename = "boto3_dynamodb_example"
+rolename = "boto3_role_example"
+policyname = "boto3_policy_example"
+functioname = "boto3_lambda_example"
+runtime = "python2.7"
+handler = "boto3_lambda_example.handler"
+pythonfilename = "zips/boto3_lambda_example.py"
+zipfilename = "zips/boto3_lambda_example.zip"
+
 def preparehandler(topicarn):
     print handler_template.substitute(topicarn=topicarn)
-    with open("zips/boto3_lambda_example.py", "w") as ostream:
+    with open(pythonfilename, "w") as ostream:
         ostream.write(handler_template.substitute(topicarn=topicarn))
-    with zipfile.ZipFile("zips/boto3_lambda_example.zip", "w") as myzip:
-        myzip.write("zips/boto3_lambda_example.py", "boto3_lambda_example.py")
+    with zipfile.ZipFile(zipfilename, "w") as myzip:
+        myzip.write(pythonfilename, os.path.basename(pythonfilename))
 
 def main():
     # 获取 region
@@ -89,13 +106,70 @@ def main():
     # 获取 accountid
     client = boto3.client("sts")
     accountid = client.get_caller_identity()["Account"]
-    tablename = "boto3_dynamodb_example"
-    rolename = "boto3_role_example"
-    policyname = "boto3_policy_example"
-    functioname = "boto3_lambda_example"
-    runtime = "python2.7"
-    handler = "boto3_lambda_example.handler"
-    zipfile = "zips/boto3_lambda_example.zip"
+
+    # 查询 s3 是否存在
+    bucket = None
+    try:
+        bucket = s3.headBucket(s3_bucketname)
+        print bucket
+    except:
+        print traceback.format_exc()
+
+    # 创建 S3
+    if bucket == None:
+        newbucket = s3.createBucket(
+            ACL="private",
+            Bucket=s3_bucketname,
+            CreateBucketConfiguration={
+                "LocationConstraint":"us-west-2"
+            }
+        )
+        print newbucket
+
+    # 列出所有的 object
+    objects = s3.listObject(s3_bucketname)
+    print objects
+
+    # 创建目录
+    newdir = s3.createDir(
+        ACL="private",
+        Bucket=s3_bucketname,
+        Key=s3_dirname,
+        StorageClass="STANDARD"
+    )
+    print newdir
+    # 上传文件
+    with open(s3_uploadfile) as istream:
+        upload = s3.uploadFile(
+            ACL="private",
+            Body=istream.read(),
+            Bucket=s3_bucketname,
+            Key=s3_dirname + os.path.basename(s3_uploadfile),
+            ContentType="application/zip",
+            StorageClass="STANDARD"
+        )
+        print upload
+
+    # 下载文件
+    download = s3.downloadFile(
+        Bucket=s3_bucketname,
+        Key=s3_dirname + os.path.basename(s3_uploadfile)
+    )
+
+    with open("test.zip","w") as ostream:
+        ostream.write(download["Body"].read())
+
+    # 删除文件
+    # response = s3.deleteFile(
+    #     Bucket=s3_bucketname,
+    #     Key=s3_dirname + os.path.basename(s3_uploadfile)
+    # )
+    # 删除目录
+    # response = s3.deleteDir(
+    #      Bucket=s3_bucketname,
+    #      Key=s3_dirname
+    #  )
+    # print response
 
     # 创建 sns topic
     newtopic = sns.createTopic("boto3_sns_example")
@@ -194,7 +268,7 @@ def main():
         preparehandler(newtopic["TopicArn"])
 
         byte_stream = None
-        with open(zipfile) as f_obj:
+        with open(zipfilename) as f_obj:
             byte_stream = f_obj.read()
 
         if byte_stream is None:
@@ -208,6 +282,39 @@ def main():
             Handler=handler,
             Code={
                 'ZipFile': byte_stream,
+            },
+            Timeout=5
+        )
+        lambdaobj = newlambda
+    print lambdaobj
+
+    # 从 s3 上添加一个 function
+    # 查询 lambda 是否存在
+    lambdaobj = None
+    try:
+        lambdaobj = lambdaa.getFunction(functioname+"2")
+    except:
+        print traceback.format_exc()
+
+    if lambdaobj is None:
+        preparehandler(newtopic["TopicArn"])
+
+        byte_stream = None
+        with open(zipfilename) as f_obj:
+            byte_stream = f_obj.read()
+
+        if byte_stream is None:
+            return
+
+        # 添加 lambda
+        newlambda = lambdaa.createFunction(
+            FunctionName=functioname+"2",
+            Runtime=runtime,
+            Role=roleobj["Role"]["Arn"],
+            Handler=handler,
+            Code={
+                "S3Bucket": s3_bucketname,
+                "S3Key": s3_dirname + os.path.basename(s3_uploadfile),
             },
             Timeout=5
         )
