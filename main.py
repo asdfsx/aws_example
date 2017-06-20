@@ -88,6 +88,7 @@ tablename = "boto3_dynamodb_example"
 rolename = "boto3_role_example"
 policyname = "boto3_policy_example"
 functioname = "boto3_lambda_example"
+functionalias = "boto3_lambda_alias"
 runtime = "python2.7"
 handler = "boto3_lambda_example.handler"
 pythonfilename = "zips/boto3_lambda_example.py"
@@ -283,10 +284,44 @@ def main():
             Code={
                 'ZipFile': byte_stream,
             },
-            Timeout=5
+            Timeout=5,
+            Publish=False
         )
         lambdaobj = newlambda
     print lambdaobj
+
+    # 修改后，lambda 创建后不再是 publish 的，需要单独 publish version
+    publish = lambdaa.publishVersion(
+        FunctionName=functioname,
+        Description=functionalias
+    )
+    print publish
+
+    # publish 后，对新的version 添加别名
+    lambdaobj = None
+    try:
+        lambdaobj = lambdaa.getAlias(
+            FunctionName=functioname,
+            Name=functionalias
+        )
+    except:
+        print traceback.format_exc()
+
+    if lambdaobj == None:
+        lambdaobj = lambdaa.createAlias(
+            FunctionName=functioname,
+            Name=functionalias,
+            FunctionVersion=publish["Version"],
+            Description=functionalias
+        )
+    else:
+        lambdaobj = lambdaa.updateAlias(
+            FunctionName=functioname,
+            Name=functionalias,
+            FunctionVersion=publish["Version"],
+            Description=functionalias
+        )
+
 
     # 从 s3 上添加一个 function
     # 查询 lambda 是否存在
@@ -316,7 +351,8 @@ def main():
                 "S3Bucket": s3_bucketname,
                 "S3Key": s3_dirname + os.path.basename(s3_uploadfile),
             },
-            Timeout=5
+            Timeout=5,
+            Publish=False
         )
         lambdaobj = newlambda
     print lambdaobj
