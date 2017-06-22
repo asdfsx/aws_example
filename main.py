@@ -44,6 +44,28 @@ policy_template = Template("""{
         {
             "Effect": "Allow",
             "Action": [
+                "ec2:CreateNetworkInterface",
+                "ec2:DescribeNetworkInterfaces",
+                "ec2:DeleteNetworkInterface"
+            ],
+            "Resource": [
+                "*"
+            ]
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:GetObject",
+                "s3:PutObject",
+                "s3:ListBucket"
+            ],
+            "Resource": [
+                "arn:aws:s3:::*"
+            ]
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
                 "sns:Publish"
             ],
             "Resource": [
@@ -266,7 +288,7 @@ def main():
         print traceback.format_exc()
 
     if lambdaobj is None:
-        preparehandler(newtopic["TopicArn"])
+        #preparehandler(newtopic["TopicArn"])
 
         byte_stream = None
         with open(zipfilename) as f_obj:
@@ -285,7 +307,15 @@ def main():
                 'ZipFile': byte_stream,
             },
             Timeout=5,
-            Publish=False
+            Publish=False,
+            VpcConfig={
+                'SubnetIds': [
+                    'subnet-1e125857',
+                ],
+                'SecurityGroupIds': [
+                    'sg-944e70ef',
+                ]
+            },
         )
         lambdaobj = newlambda
     print lambdaobj
@@ -332,7 +362,7 @@ def main():
         print traceback.format_exc()
 
     if lambdaobj is None:
-        preparehandler(newtopic["TopicArn"])
+        #preparehandler(newtopic["TopicArn"])
 
         byte_stream = None
         with open(zipfilename) as f_obj:
@@ -352,7 +382,8 @@ def main():
                 "S3Key": s3_dirname + os.path.basename(s3_uploadfile),
             },
             Timeout=5,
-            Publish=False
+            Publish=False,
+            VpcConfig={}
         )
         lambdaobj = newlambda
     print lambdaobj

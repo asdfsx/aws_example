@@ -3,7 +3,7 @@ import boto3
 
 lambdaobj = boto3.client("lambda")
 
-def createFunction(FunctionName, Runtime, Role, Handler, Code, Timeout, Publish):
+def createFunction(FunctionName, Runtime, Role, Handler, Code, Timeout, Publish, VpcConfig):
     return lambdaobj.create_function(
         FunctionName=FunctionName,
         Runtime=Runtime,
@@ -11,7 +11,8 @@ def createFunction(FunctionName, Runtime, Role, Handler, Code, Timeout, Publish)
         Handler=Handler,
         Code=Code,
         Timeout=Timeout,
-        Publish=Publish
+        Publish=Publish,
+        VpcConfig=VpcConfig
     )
 
 
@@ -49,7 +50,7 @@ def updateAlias(FunctionName, FunctionVersion, Name, Description):
 
 
 def getAlias(FunctionName, Name):
-    return client.get_alias(
+    return lambdaobj.get_alias(
         FunctionName=FunctionName,
         Name=Name
     )
